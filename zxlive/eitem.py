@@ -18,7 +18,7 @@ from math import sqrt
 from typing import Optional, Any, TYPE_CHECKING, Union
 from enum import Enum
 
-from PySide6.QtCore import QPointF, QVariantAnimation, QAbstractAnimation
+from PySide6.QtCore import QPointF, QVariantAnimation, QAbstractAnimation, Qt
 from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem, QGraphicsItem, \
     QGraphicsSceneMouseEvent, QStyleOptionGraphicsItem, QWidget, QStyle
 from PySide6.QtGui import QPen, QPainter, QColor, QPainterPath, QPainterPathStroker
@@ -136,6 +136,27 @@ class EItem(QGraphicsPathItem):
         # we intercept the selected option here.
         assert hasattr(option, "state")
         option.state &= ~QStyle.StateFlag.State_Selected
+        
+        pen = self.pen()
+        
+        pauli_x_pen = QPen(pen)
+        pauli_x_pen.setWidthF(self.thickness * 2.5)
+        pauli_x_pen.setColor(display_setting.effective_colors["x_spider"])
+        pauli_x_pen.setStyle(Qt.PenStyle.SolidLine)
+        pauli_x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        
+        pauli_z_pen = QPen(pauli_x_pen)
+        pauli_z_pen.setWidthF(self.thickness * 4)
+        pauli_z_pen.setColor(display_setting.effective_colors["z_spider"])
+        
+        # draw edges in decreasing thickness
+        self.setPen(pauli_z_pen)
+        super().paint(painter, option, widget)
+        
+        self.setPen(pauli_x_pen)
+        super().paint(painter, option, widget)
+        
+        self.setPen(pen)
         super().paint(painter, option, widget)
 
     def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
