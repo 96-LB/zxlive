@@ -8,8 +8,12 @@ from PySide6.QtCore import Signal, QSettings
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QInputDialog, QMessageBox, QToolButton
 from pyzx import EdgeType, VertexType, sqasm
+from pyzx.web import compute_pauli_webs
 from pyzx.circuit.qasmparser import QASMParser
 from zxlive.eitem import EItem
+from pyzx.graph.jsonparser import json_to_graph
+from PySide6.QtWidgets import QMenu
+from PySide6.QtGui import Qt, QGuiApplication
 
 from .base_panel import ToolbarSection
 from .commands import SetPauliWeb, UpdateGraph
@@ -40,7 +44,7 @@ class GraphEditPanel(EditorBasePanel):
         self.graph_scene.vertex_dropped_onto.connect(self._vertex_dropped_onto)
         self.graph_scene.edge_added.connect(self.add_edge)
         self.graph_scene.edge_dragged.connect(self.change_edge_curves)
-        self.graph_scene.edge_double_clicked.connect(self._debug_apply_random_pauli_web)
+
 
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
@@ -52,6 +56,10 @@ class GraphEditPanel(EditorBasePanel):
 
         self.create_side_bar()
         self.splitter.addWidget(self.sidebar)
+
+        self._pauli_webs = []         
+        self._pauli_web_index = -1     
+
 
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
         yield from super()._toolbar_sections()
@@ -66,12 +74,81 @@ class GraphEditPanel(EditorBasePanel):
         self.start_derivation.clicked.connect(self._start_derivation)
         yield ToolbarSection(self.start_derivation)
 
+        self.pauli_webs_btn = QToolButton(self)
+        self.pauli_webs_btn.setText("Pauli Webs")
+        self.pauli_webs_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+        menu = QMenu(self)
+        self._action_compute = menu.addAction("Compute/Refresh")
+        self._action_prev = menu.addAction("Previous web")
+        self._action_next = menu.addAction("Next web")
+        self._action_clear = menu.addAction("Clear markings")
+
+        self._action_compute.triggered.connect(self._compute_pauli_webs)
+        self._action_prev.triggered.connect(self._prev_pauli_web)
+        self._action_next.triggered.connect(self._next_pauli_web)
+        self._action_clear.triggered.connect(self._clear_pauli_webs)
+
+        self.pauli_webs_btn.setMenu(menu)
+        yield ToolbarSection(self.pauli_webs_btn)
+
+
+
     def _start_derivation(self) -> None:
         if not self.graph_scene.g.is_well_formed():
             show_error_msg("Graph is not well-formed", parent=self)
             return
         new_g: GraphT = copy.deepcopy(self.graph_scene.g)
         self.start_derivation_signal.emit(new_g)
+
+    def _compute_pauli_webs(self) -> None:
+
+        #Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
+        simple_g = json_to_graph(self.graph_scene.g.to_json(), backend="simple")
+
+        try:
+            stabs, regions = compute_pauli_webs(simple_g)
+        except Exception as err:
+            show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
+            return
+        self._pauli_webs = stabs + regions
+        self._pauli_web_index = 0 if self._pauli_webs else -1
+        self._show_current_pauli_web()
+
+    def _show_current_pauli_web(self) -> None:
+        new_g = copy.deepcopy(self.graph_scene.g)
+        for e in new_g.edges():
+            new_g.set_edata(e, "xweb", False)
+            new_g.set_edata(e, "zweb", False)
+
+        if 0 <= self._pauli_web_index < len(self._pauli_webs):
+            web = self._pauli_webs[self._pauli_web_index]
+            for (s, t), pauli in web.half_edges().items():
+                try:
+                    edge = new_g.edge(s, t)
+                except Exception:
+                    continue
+                if pauli in ("X", "Y"):
+                    new_g.set_edata(edge, "xweb", True)
+                if pauli in ("Z", "Y"):
+                    new_g.set_edata(edge, "zweb", True)
+        self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
+    def _next_pauli_web(self):
+        if not self._pauli_webs:
+            return
+        self._pauli_web_index = (self._pauli_web_index + 1) % len(self._pauli_webs)
+        self._show_current_pauli_web()
+
+    def _prev_pauli_web(self):
+        if not self._pauli_webs:
+            return
+        self._pauli_web_index = (self._pauli_web_index - 1) % len(self._pauli_webs)
+        self._show_current_pauli_web()
+
+    def _clear_pauli_webs(self):
+        self._pauli_webs = []
+        self._pauli_web_index = -1
+        self._show_current_pauli_web()
 
     def _input_circuit(self) -> None:
         settings = QSettings("zxlive", "zxlive")
@@ -136,7 +213,3 @@ class GraphEditPanel(EditorBasePanel):
         write_to_file(path, data=subgraph.to_json(), parent=self)
         self.refresh_patterns()
     
-    def _debug_apply_random_pauli_web(self, eitem: ET) -> None:
-        # CAP: this is a test function -- remove before merging
-        from random import randrange
-        self.undo_stack.push(SetPauliWeb(self.graph_view, eitem, SetPauliWeb.Pauli(randrange(0, 4))))
