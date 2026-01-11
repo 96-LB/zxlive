@@ -9,10 +9,11 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QInputDialog, QMessageBox, QToolButton
 from pyzx import EdgeType, VertexType, sqasm
 from pyzx.circuit.qasmparser import QASMParser
+from zxlive.eitem import EItem
 
 from .base_panel import ToolbarSection
-from .commands import UpdateGraph
-from .common import VT, GraphT, get_settings_value
+from .commands import SetPauliWeb, UpdateGraph
+from .common import ET, VT, GraphT, get_settings_value
 from .dialogs import create_circuit_dialog, show_error_msg, write_to_file
 from .editor_base_panel import EditorBasePanel
 from .graphscene import EditGraphScene
@@ -39,6 +40,7 @@ class GraphEditPanel(EditorBasePanel):
         self.graph_scene.vertex_dropped_onto.connect(self._vertex_dropped_onto)
         self.graph_scene.edge_added.connect(self.add_edge)
         self.graph_scene.edge_dragged.connect(self.change_edge_curves)
+        self.graph_scene.edge_double_clicked.connect(self._debug_apply_random_pauli_web)
 
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
@@ -133,3 +135,8 @@ class GraphEditPanel(EditorBasePanel):
                 return
         write_to_file(path, data=subgraph.to_json(), parent=self)
         self.refresh_patterns()
+    
+    def _debug_apply_random_pauli_web(self, eitem: ET) -> None:
+        # CAP: this is a test function -- remove before merging
+        from random import randrange
+        self.undo_stack.push(SetPauliWeb(self.graph_view, eitem, SetPauliWeb.Pauli(randrange(0, 4))))

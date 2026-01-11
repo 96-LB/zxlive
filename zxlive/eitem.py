@@ -138,25 +138,30 @@ class EItem(QGraphicsPathItem):
         option.state &= ~QStyle.StateFlag.State_Selected
         
         pen = self.pen()
+        zweb = self.g.edata(self.e, "zweb")
+        xweb = self.g.edata(self.e, "xweb")
         
-        pauli_x_pen = QPen(pen)
-        pauli_x_pen.setWidthF(self.thickness * 2.5)
-        pauli_x_pen.setColor(display_setting.effective_colors["x_spider"])
-        pauli_x_pen.setStyle(Qt.PenStyle.SolidLine)
-        pauli_x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         
-        pauli_z_pen = QPen(pauli_x_pen)
-        pauli_z_pen.setWidthF(self.thickness * 4)
-        pauli_z_pen.setColor(display_setting.effective_colors["z_spider"])
+        if zweb:
+            pauli_z_pen = QPen(pen)
+            pauli_z_pen.setWidthF(self.thickness * (3.5 if xweb else 2.5))
+            pauli_z_pen.setColor(display_setting.effective_colors["z_spider"])
+            pauli_z_pen.setStyle(Qt.PenStyle.SolidLine)
+            pauli_z_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            self.setPen(pauli_z_pen)
+            super().paint(painter, option, widget)
+            self.setPen(pen)
         
-        # draw edges in decreasing thickness
-        self.setPen(pauli_z_pen)
-        super().paint(painter, option, widget)
+        if xweb:
+            pauli_x_pen = QPen(pen)
+            pauli_x_pen.setWidthF(self.thickness * 2.5)
+            pauli_x_pen.setColor(display_setting.effective_colors["x_spider"])
+            pauli_x_pen.setStyle(Qt.PenStyle.SolidLine)
+            pauli_x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            self.setPen(pauli_x_pen)
+            super().paint(painter, option, widget)
+            self.setPen(pen)
         
-        self.setPen(pauli_x_pen)
-        super().paint(painter, option, widget)
-        
-        self.setPen(pen)
         super().paint(painter, option, widget)
 
     def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
