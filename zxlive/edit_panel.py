@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 from typing import Iterator
 
@@ -109,13 +110,28 @@ class GraphEditPanel(EditorBasePanel):
     def _compute_pauli_webs(self) -> None:
 
         #Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
-        simple_g = json_to_graph(self.graph_scene.g.to_json(), backend="simple")
-
+        graph_json = json.loads(self.graph_scene.g.to_json())
+        
+        try:  
+            edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
+            unique_pairs = set(edge_pairs)
+            has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
+            
+            if has_duplicate_edges:
+                raise ValueError("Graph is a multigraph. Pauli web computation requires a simple graph.")
+            
+        except ValueError as ve:
+            show_error_msg(str(ve), parent=self)
+            return
+        
+        simple_g = json_to_graph(graph_json, backend="simple")
+    
         try:
             stabs, regions = compute_pauli_webs(simple_g)
         except Exception as err:
             show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
             return
+        
         self._pauli_webs = stabs + regions
         self._pauli_web_index = 0 if self._pauli_webs else -1
         self._show_current_pauli_web()
