@@ -34,7 +34,6 @@ from .settings import display_setting
 class GraphScene(QGraphicsScene):
     """The main class responsible for drawing/editing graphs"""
 
-    g: GraphT
 
     # Signals to handle double-clicking and moving of vertices.
     # Note that we have to set the argument types to `object`,
@@ -62,6 +61,7 @@ class GraphScene(QGraphicsScene):
         self.update_background_brush()
         self.vertex_map: dict[VT, VItem] = {}
         self.edge_map: dict[ET, dict[int, EItem]] = {}
+        self.g: GraphT
 
     def update_background_brush(self) -> None:
         if display_setting.dark_mode:
