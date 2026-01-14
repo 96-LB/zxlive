@@ -9,10 +9,8 @@ from PySide6.QtCore import Signal, QSettings
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QInputDialog, QMessageBox, QToolButton
 from pyzx import EdgeType, VertexType, sqasm
-from pyzx.web import compute_pauli_webs
 from pyzx.circuit.qasmparser import QASMParser
 from zxlive.eitem import EItem
-from pyzx.graph.jsonparser import json_to_graph
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut, Qt
 
@@ -20,13 +18,13 @@ from .base_panel import ToolbarSection
 from .commands import SetPauliWeb, UpdateGraph
 from .common import ET, VT, GraphT, get_settings_value
 from .dialogs import create_circuit_dialog, show_error_msg, write_to_file
-from .editor_base_panel import EditorBasePanel
+from .editor_base_panel import EditorBasePanel, PauliFunctionality
 from .graphscene import EditGraphScene
 from .graphview import GraphView
 from .settings_dialog import input_circuit_formats
 
 
-class GraphEditPanel(EditorBasePanel):
+class GraphEditPanel(EditorBasePanel, PauliFunctionality):
     """Panel for the edit mode of ZXLive."""
 
     graph_scene: EditGraphScene
@@ -45,7 +43,6 @@ class GraphEditPanel(EditorBasePanel):
         self.graph_scene.vertex_dropped_onto.connect(self._vertex_dropped_onto)
         self.graph_scene.edge_added.connect(self.add_edge)
         self.graph_scene.edge_dragged.connect(self.change_edge_curves)
-
 
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
@@ -106,72 +103,6 @@ class GraphEditPanel(EditorBasePanel):
             return
         new_g: GraphT = copy.deepcopy(self.graph_scene.g)
         self.start_derivation_signal.emit(new_g)
-
-    def _compute_pauli_webs(self) -> None:
-
-        #Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
-        graph_json = json.loads(self.graph_scene.g.to_json())
-        
-        try:  
-            edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
-            unique_pairs = set(edge_pairs)
-            has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
-            
-            if has_duplicate_edges:
-                raise ValueError("Graph is a multigraph. Pauli web computation requires a simple graph.")
-            
-        except ValueError as ve:
-            show_error_msg(str(ve), parent=self)
-            return
-        
-        simple_g = json_to_graph(graph_json, backend="simple")
-    
-        try:
-            stabs, regions = compute_pauli_webs(simple_g)
-        except Exception as err:
-            show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
-            return
-        
-        self._pauli_webs = stabs + regions
-        self._pauli_web_index = 0 if self._pauli_webs else -1
-        self._show_current_pauli_web()
-
-    def _show_current_pauli_web(self) -> None:
-        new_g = copy.deepcopy(self.graph_scene.g)
-        for e in new_g.edges():
-            new_g.set_edata(e, "xweb", False)
-            new_g.set_edata(e, "zweb", False)
-
-        if 0 <= self._pauli_web_index < len(self._pauli_webs):
-            web = self._pauli_webs[self._pauli_web_index]
-            for (s, t), pauli in web.half_edges().items():
-                try:
-                    edge = new_g.edge(s, t)
-                except Exception:
-                    continue
-                if pauli in ("X", "Y"):
-                    new_g.set_edata(edge, "xweb", True)
-                if pauli in ("Z", "Y"):
-                    new_g.set_edata(edge, "zweb", True)
-        self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
-        self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
-    
-    def _next_pauli_web(self):
-        if not self._pauli_webs:
-            return
-        self._pauli_web_index = (self._pauli_web_index + 1) % len(self._pauli_webs)
-        self._show_current_pauli_web()
-
-    def _prev_pauli_web(self):
-        if not self._pauli_webs:
-            return
-        self._pauli_web_index = (self._pauli_web_index - 1) % len(self._pauli_webs)
-        self._show_current_pauli_web()
-
-    def _clear_pauli_webs(self):
-        self._pauli_webs = []
-        self._pauli_web_index = -1
-        self._show_current_pauli_web()
 
     def _input_circuit(self) -> None:
         settings = QSettings("zxlive", "zxlive")
