@@ -13,7 +13,7 @@ from pyzx.circuit.qasmparser import QASMParser
 from zxlive.eitem import EItem
 from pyzx.graph.jsonparser import json_to_graph
 from PySide6.QtWidgets import QMenu
-from PySide6.QtGui import Qt, QGuiApplication
+from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut, Qt
 
 from .base_panel import ToolbarSection
 from .commands import SetPauliWeb, UpdateGraph
@@ -57,8 +57,13 @@ class GraphEditPanel(EditorBasePanel):
         self.create_side_bar()
         self.splitter.addWidget(self.sidebar)
 
-        self._pauli_webs = []         
-        self._pauli_web_index = -1     
+        self._pauli_webs = []
+        self._pauli_web_index = -1
+        
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._compute_pauli_webs)
+        QShortcut(QKeySequence("Ctrl+]"), self).activated.connect(self._next_pauli_web)
+        QShortcut(QKeySequence("Ctrl+["), self).activated.connect(self._prev_pauli_web)
+        QShortcut(QKeySequence("Ctrl+Shift+P"), self).activated.connect(self._clear_pauli_webs)
 
 
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
