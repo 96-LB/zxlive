@@ -536,14 +536,14 @@ class SetPauliWeb(BaseCommand):
     def _set_pauli_type(self, pauli: Pauli) -> None:
         Pauli = SetPauliWeb.Pauli
         
-        old_x = Pauli.X if self.g.edata(self.edge, f"xweb") else Pauli.I
-        old_z = Pauli.Z if self.g.edata(self.edge, f"zweb") else Pauli.I
+        old_x = Pauli.X if self.g.edata(self.edge, "xweb") else Pauli.I
+        old_z = Pauli.Z if self.g.edata(self.edge, "zweb") else Pauli.I
         self._old_pauli = old_x | old_z
         
         new_x = pauli & Pauli.X
         new_z = pauli & Pauli.Z
-        self.g.set_edata(self.edge, f"xweb", new_x)
-        self.g.set_edata(self.edge, f"zweb", new_z)
+        self.g.set_edata(self.edge, "xweb", new_x)
+        self.g.set_edata(self.edge, "zweb", new_z)
         
         self.update_graph_view()
     
