@@ -138,6 +138,8 @@ class GraphEditPanel(EditorBasePanel):
                 if pauli in ("Z", "Y"):
                     new_g.set_edata(edge, "zweb", True)
         self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
+        self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
+    
     def _next_pauli_web(self):
         if not self._pauli_webs:
             return
