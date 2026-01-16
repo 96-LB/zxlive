@@ -73,7 +73,7 @@ class EItem(QGraphicsPathItem):
         self.thickness: float = 3
         self.color: QColor = QColor()
         self.reset_color()
-
+        
         self.refresh()
 
     @property
@@ -121,11 +121,28 @@ class EItem(QGraphicsPathItem):
                          s_pos + QPointF(-1, -1) * cd * SCALE,
                          s_pos)
             curve_midpoint = s_pos + QPointF(0, -0.75) * cd * SCALE
+            
+            # we don't care about half-paths for self loops, since they won't be colored
+            self.half_path_left = None
+            self.half_path_right = None
         else:
             control_point = calculate_control_point(self.s_item.pos(), self.t_item.pos(), self.curve_distance)
             path.moveTo(self.s_item.pos())
             path.quadTo(control_point, self.t_item.pos())
             curve_midpoint = self.s_item.pos() * 0.25 + control_point * 0.5 + self.t_item.pos() * 0.25
+            
+            half_path_left = QPainterPath()
+            half_control_left = (self.s_item.pos() + control_point) * 0.5
+            half_path_left.moveTo(self.s_item.pos())
+            half_path_left.quadTo(half_control_left, curve_midpoint)
+            self.half_path_left = half_path_left
+            
+            half_path_right = QPainterPath()
+            half_control_right = (self.t_item.pos() + control_point) * 0.5
+            half_path_right.moveTo(curve_midpoint)
+            half_path_right.quadTo(half_control_right, self.t_item.pos())
+            self.half_path_right = half_path_right
+        
         self.setPath(path)
         self.selection_node.setPos(curve_midpoint.x(), curve_midpoint.y())
         self.selection_node.setVisible(self.isSelected())
@@ -137,30 +154,45 @@ class EItem(QGraphicsPathItem):
         assert hasattr(option, "state")
         option.state &= ~QStyle.StateFlag.State_Selected
         
+        path = self.path()
         pen = self.pen()
-        zweb = self.g.edata(self.e, "zweb")
-        xweb = self.g.edata(self.e, "xweb")
+        zweb0 = self.g.edata(self.e, "zweb0")
+        xweb0 = self.g.edata(self.e, "xweb0")
+        zweb1 = self.g.edata(self.e, "zweb1")
+        xweb1 = self.g.edata(self.e, "xweb1")
         
-        
-        if zweb:
-            pauli_z_pen = QPen(pen)
-            pauli_z_pen.setWidthF(self.thickness * (3.5 if xweb else 2.5))
-            pauli_z_pen.setColor(display_setting.effective_colors["z_spider"])
-            pauli_z_pen.setStyle(Qt.PenStyle.SolidLine)
-            pauli_z_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            self.setPen(pauli_z_pen)
+        if zweb0 or zweb1:
+            z_thickness = 3.5 if (zweb0 and xweb0) or (zweb1 and xweb1) else 2.5
+            z_path = path if zweb0 and zweb1 else (self.half_path_left if zweb0 else self.half_path_right)
+            z_path = z_path or path # fallback if half paths are not defined (self-loops)
+            
+            z_pen = QPen(pen)
+            z_pen.setWidthF(self.thickness * z_thickness)
+            z_pen.setColor(display_setting.effective_colors["z_spider"])
+            z_pen.setStyle(Qt.PenStyle.SolidLine)
+            z_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            
+            self.setPen(z_pen)
+            self.setPath(z_path)
             super().paint(painter, option, widget)
             self.setPen(pen)
+            self.setPath(path)
         
-        if xweb:
-            pauli_x_pen = QPen(pen)
-            pauli_x_pen.setWidthF(self.thickness * 2.5)
-            pauli_x_pen.setColor(display_setting.effective_colors["x_spider"])
-            pauli_x_pen.setStyle(Qt.PenStyle.SolidLine)
-            pauli_x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            self.setPen(pauli_x_pen)
+        if xweb0 or xweb1:
+            x_thickness = 2.5
+            x_path = path if xweb0 and xweb1 else (self.half_path_left if xweb0 else self.half_path_right)
+            x_path = x_path or path # fallback if half paths are not defined (self-loops)
+            
+            x_pen = QPen(pen)
+            x_pen.setWidthF(self.thickness * x_thickness)
+            x_pen.setColor(display_setting.effective_colors["x_spider"])
+            x_pen.setStyle(Qt.PenStyle.SolidLine)
+            x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            self.setPen(x_pen)
+            self.setPath(x_path)
             super().paint(painter, option, widget)
             self.setPen(pen)
+            self.setPath(path)
         
         super().paint(painter, option, widget)
 

@@ -734,10 +734,10 @@ def string_to_complex(string: str) -> complex:
 class PauliFunctionality(BasePanel):
     def _compute_pauli_webs(self) -> None:
 
-        #Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
+        # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
         graph_json = json.loads(self.graph_scene.g.to_json())
         
-        try:  
+        try:
             edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
             unique_pairs = set(edge_pairs)
             has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
