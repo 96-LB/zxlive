@@ -58,12 +58,11 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
         self._pauli_webs = []
         self._pauli_web_index = -1
         
-        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._compute_pauli_webs)
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._toggle_pauli_webs)
         QShortcut(QKeySequence("Ctrl+]"), self).activated.connect(self._next_pauli_web)
         QShortcut(QKeySequence("Ctrl+["), self).activated.connect(self._prev_pauli_web)
-        QShortcut(QKeySequence("Ctrl+Shift+P"), self).activated.connect(self._clear_pauli_webs)
-
-
+    
+    
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
         yield from super()._toolbar_sections()
 
@@ -90,7 +89,7 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
         self._action_compute.triggered.connect(self._compute_pauli_webs)
         self._action_prev.triggered.connect(self._prev_pauli_web)
         self._action_next.triggered.connect(self._next_pauli_web)
-        self._action_clear.triggered.connect(self._clear_pauli_webs)
+        self._action_clear.triggered.connect(self._hide_pauli_webs)
 
         self.pauli_webs_btn.setMenu(menu)
         yield ToolbarSection(self.pauli_webs_btn)
@@ -166,4 +165,3 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
                 return
         write_to_file(path, data=subgraph.to_json(), parent=self)
         self.refresh_patterns()
-    
