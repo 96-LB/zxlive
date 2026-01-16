@@ -309,7 +309,6 @@ class EditorBasePanel(BasePanel):
         view_pos = self.graph_scene.vertex_map[v].pos()
         pos = pos_from_view(view_pos.x(), view_pos.y())
         self.vert_moved([(v, pos[0], pos[1])])
-        self._clear_pauli_webs()
 
     def change_edge_curves(self, eitem: EItem, new_distance: float, old_distance: float) -> None:
         self.undo_stack.push(ChangeEdgeCurve(self.graph_view, eitem, new_distance, old_distance))
@@ -784,7 +783,7 @@ class PauliFunctionality(BasePanel):
                     new_g.set_edata(edge, "zweb0", True)
                 if pauli in ("Z", "Y") and s > t:
                     new_g.set_edata(edge, "zweb1", True)
-                    
+
         self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
         self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
     
