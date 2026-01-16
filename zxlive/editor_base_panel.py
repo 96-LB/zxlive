@@ -764,8 +764,10 @@ class PauliFunctionality(BasePanel):
     def _show_current_pauli_web(self) -> None:
         new_g = copy.deepcopy(self.graph_scene.g)
         for e in new_g.edges():
-            new_g.set_edata(e, "xweb", False)
-            new_g.set_edata(e, "zweb", False)
+            new_g.set_edata(e, "xweb0", False)
+            new_g.set_edata(e, "zweb0", False)
+            new_g.set_edata(e, "xweb1", False)
+            new_g.set_edata(e, "zweb1", False)
 
         if 0 <= self._pauli_web_index < len(self._pauli_webs):
             web = self._pauli_webs[self._pauli_web_index]
@@ -774,10 +776,15 @@ class PauliFunctionality(BasePanel):
                     edge = new_g.edge(s, t)
                 except Exception:
                     continue
-                if pauli in ("X", "Y"):
-                    new_g.set_edata(edge, "xweb", True)
-                if pauli in ("Z", "Y"):
-                    new_g.set_edata(edge, "zweb", True)
+                if pauli in ("X", "Y") and s < t:
+                    new_g.set_edata(edge, "xweb0", True)
+                if pauli in ("X", "Y") and s > t:
+                    new_g.set_edata(edge, "xweb1", True)
+                if pauli in ("Z", "Y") and s < t:
+                    new_g.set_edata(edge, "zweb0", True)
+                if pauli in ("Z", "Y") and s > t:
+                    new_g.set_edata(edge, "zweb1", True)
+                    
         self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
         self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
     
