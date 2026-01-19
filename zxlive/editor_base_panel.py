@@ -31,10 +31,6 @@ from .settings import display_setting
 
 from . import animations
 
-import json
-from pyzx.graph.jsonparser import json_to_graph
-from pyzx.web import compute_pauli_webs
-
 class ShapeType(Enum):
     CIRCLE = 1
     SQUARE = 2
@@ -73,6 +69,7 @@ class EditorBasePanel(BasePanel):
 
     graph_scene: EditGraphScene
     start_derivation_signal = Signal(object)
+    
     sidebar: QSplitter
 
     _curr_ety: EdgeType
@@ -730,76 +727,3 @@ def create_icon(shape: ShapeType, color: QColor) -> QIcon:
 def string_to_complex(string: str) -> complex:
     return complex(string) if string else complex(0)
 
-class PauliFunctionality(BasePanel):
-    def _compute_pauli_webs(self) -> None:
-
-        # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
-        graph_json = json.loads(self.graph_scene.g.to_json())
-        
-        try:
-            edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
-            unique_pairs = set(edge_pairs)
-            has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
-
-            if has_duplicate_edges:
-                raise ValueError("Graph is a multigraph. Pauli web computation requires a simple graph.")
-            
-        except ValueError as ve:
-            show_error_msg(str(ve), parent=self)
-            return
-        
-        simple_g = json_to_graph(graph_json, backend="simple")
-    
-        try:
-            stabs, regions = compute_pauli_webs(simple_g)
-        except Exception as err:
-            show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
-            return
-        
-        self._pauli_webs = stabs + regions
-        self._pauli_web_index = 0 if self._pauli_webs else -1
-        self._show_current_pauli_web()
-
-    def _show_current_pauli_web(self) -> None:
-        new_g = copy.deepcopy(self.graph_scene.g)
-        for e in new_g.edges():
-            new_g.set_edata(e, "xweb0", False)
-            new_g.set_edata(e, "zweb0", False)
-            new_g.set_edata(e, "xweb1", False)
-            new_g.set_edata(e, "zweb1", False)
-
-        if 0 <= self._pauli_web_index < len(self._pauli_webs):
-            web = self._pauli_webs[self._pauli_web_index]
-            for (s, t), pauli in web.half_edges().items():
-                try:
-                    edge = new_g.edge(s, t)
-                except Exception:
-                    continue
-                if pauli in ("X", "Y") and s < t:
-                    new_g.set_edata(edge, "xweb0", True)
-                if pauli in ("X", "Y") and s > t:
-                    new_g.set_edata(edge, "xweb1", True)
-                if pauli in ("Z", "Y") and s < t:
-                    new_g.set_edata(edge, "zweb0", True)
-                if pauli in ("Z", "Y") and s > t:
-                    new_g.set_edata(edge, "zweb1", True)
-
-        self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
-        self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
-    
-    def _next_pauli_web(self):
-        if not self._pauli_webs:
-            return
-        self._pauli_web_index = (self._pauli_web_index + 1) % len(self._pauli_webs)
-        self._show_current_pauli_web()
-
-    def _prev_pauli_web(self):
-        if not self._pauli_webs:
-            return
-        self._pauli_web_index = (self._pauli_web_index - 1) % len(self._pauli_webs)
-        self._show_current_pauli_web()
-
-    def _clear_pauli_webs(self):
-        self._pauli_webs = []
-        self._pauli_web_index = -1
-        self._show_current_pauli_web()

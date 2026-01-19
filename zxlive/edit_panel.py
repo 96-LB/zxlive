@@ -11,24 +11,25 @@ from PySide6.QtWidgets import QInputDialog, QMessageBox, QToolButton
 from pyzx import EdgeType, VertexType, sqasm
 from pyzx.circuit.qasmparser import QASMParser
 from zxlive.eitem import EItem
-from PySide6.QtWidgets import QMenu
+
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut, Qt
 
 from .base_panel import ToolbarSection
 from .commands import SetPauliWeb, UpdateGraph
 from .common import ET, VT, GraphT, get_settings_value
 from .dialogs import create_circuit_dialog, show_error_msg, write_to_file
-from .editor_base_panel import EditorBasePanel, PauliFunctionality
+from .editor_base_panel import EditorBasePanel
 from .graphscene import EditGraphScene
 from .graphview import GraphView
 from .settings_dialog import input_circuit_formats
 
 
-class GraphEditPanel(EditorBasePanel, PauliFunctionality):
+class GraphEditPanel(EditorBasePanel):
     """Panel for the edit mode of ZXLive."""
 
     graph_scene: EditGraphScene
     start_derivation_signal = Signal(object)
+    start_pauliwebs_signal = Signal(object)
 
     _curr_ety: EdgeType
     _curr_vty: VertexType
@@ -55,13 +56,6 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
         self.create_side_bar()
         self.splitter.addWidget(self.sidebar)
 
-        self._pauli_webs = []
-        self._pauli_web_index = -1
-        
-        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._compute_pauli_webs)
-        QShortcut(QKeySequence("Ctrl+]"), self).activated.connect(self._next_pauli_web)
-        QShortcut(QKeySequence("Ctrl+["), self).activated.connect(self._prev_pauli_web)
-        QShortcut(QKeySequence("Ctrl+Shift+P"), self).activated.connect(self._clear_pauli_webs)
 
 
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
@@ -77,24 +71,10 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
         self.start_derivation.clicked.connect(self._start_derivation)
         yield ToolbarSection(self.start_derivation)
 
-        self.pauli_webs_btn = QToolButton(self)
-        self.pauli_webs_btn.setText("Pauli Webs")
-        self.pauli_webs_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-
-        menu = QMenu(self)
-        self._action_compute = menu.addAction("Compute/Refresh")
-        self._action_prev = menu.addAction("Previous web")
-        self._action_next = menu.addAction("Next web")
-        self._action_clear = menu.addAction("Clear markings")
-
-        self._action_compute.triggered.connect(self._compute_pauli_webs)
-        self._action_prev.triggered.connect(self._prev_pauli_web)
-        self._action_next.triggered.connect(self._next_pauli_web)
-        self._action_clear.triggered.connect(self._clear_pauli_webs)
-
-        self.pauli_webs_btn.setMenu(menu)
-        yield ToolbarSection(self.pauli_webs_btn)
-
+        self.pauli_webs = QToolButton(self)
+        self.pauli_webs.setText("Pauli Webs")
+        self.pauli_webs.clicked.connect(self._start_pauliwebs)
+        yield ToolbarSection(self.pauli_webs)
 
 
     def _start_derivation(self) -> None:
@@ -103,6 +83,22 @@ class GraphEditPanel(EditorBasePanel, PauliFunctionality):
             return
         new_g: GraphT = copy.deepcopy(self.graph_scene.g)
         self.start_derivation_signal.emit(new_g)
+    
+    def _start_pauliwebs(self) -> None:
+        if not self.graph_scene.g.is_well_formed():
+            show_error_msg("Graph is not well-formed", parent=self)
+            return
+        
+        graph_json = json.loads(self.graph_scene.g.to_json())
+        edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
+        unique_pairs = set(edge_pairs)
+        has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
+        if has_duplicate_edges:
+            show_error_msg("Graph is a multigraph", parent=self)
+            return
+        
+        new_g: GraphT = copy.deepcopy(self.graph_scene.g)
+        self.start_pauliwebs_signal.emit(new_g) 
 
     def _input_circuit(self) -> None:
         settings = QSettings("zxlive", "zxlive")
