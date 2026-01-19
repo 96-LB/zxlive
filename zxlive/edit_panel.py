@@ -162,4 +162,3 @@ class GraphEditPanel(EditorBasePanel):
                 return
         write_to_file(path, data=subgraph.to_json(), parent=self)
         self.refresh_patterns()
-    
