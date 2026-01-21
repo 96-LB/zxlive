@@ -33,8 +33,7 @@ from pyzx.graph.jsonparser import json_to_graph
 from pyzx.web import compute_pauli_webs
 
 class PauliWebsBasePanel(BasePanel):
-    """Base class implementing the shared functionality of graph edit
-    and rule edit panels of ZXLive."""
+    """write something here"""
 
     graph_scene: EditGraphScene
     sidebar: QSplitter
@@ -60,18 +59,6 @@ class PauliWebsBasePanel(BasePanel):
         edge_container, edge_layout = create_titled_widget("Edges")
         self.sidebar.addWidget(edge_container)
 
-
-    def vert_moved(self, vs: list[tuple[VT, float, float]]) -> None:
-        self.undo_stack.push(MoveNode(self.graph_view, vs))
-
-    def _vertex_dropped_onto(self, v: VT, w: VT) -> None:
-        view_pos = self.graph_scene.vertex_map[v].pos()
-        pos = pos_from_view(view_pos.x(), view_pos.y())
-        self.vert_moved([(v, pos[0], pos[1])])
-
-    def change_edge_curves(self, eitem: EItem, new_distance: float, old_distance: float) -> None:
-        self.undo_stack.push(ChangeEdgeCurve(self.graph_view, eitem, new_distance, old_distance))
-    
     def _compute_pauli_webs(self) -> None:
         # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
         graph_json = json.loads(self.graph_scene.g.to_json())
@@ -112,9 +99,34 @@ class PauliWebsBasePanel(BasePanel):
 
         if self._pauli_webs:
             self.web_list.setCurrentRow(0)
-            self._pauli_web_index = 0
+            self._pauli_web_index = []
             self._show_current_pauli_web()
-    
+
+
+    def add_pauli_web(self, web1, web2) -> None:
+        # Mapping letters to numbers for XOR logic
+        to_num = {'X': 1, 'Y': 2, 'Z': 3}
+        to_char = {1: 'X', 2: 'Y', 3: 'Z'}
+        
+        result = {}
+        
+        # Get all unique keys from both dictionaries
+        all_keys = set(web1.keys()) | set(web2.keys())
+        
+        for key in all_keys:
+            # Get the numeric value (0 if key doesn't exist in that dict)
+            val1 = to_num.get(web1.get(key), 0)
+            val2 = to_num.get(web2.get(key), 0)
+            
+            # Perform XOR addition
+            combined_val = val1 ^ val2
+            
+            # If the result isn't 0 (not cancelled out), add back to dictionary
+            if combined_val != 0:
+                result[key] = to_char[combined_val]
+                
+        return result
+        
     def _show_current_pauli_web(self) -> None:
         new_g = copy.deepcopy(self.graph_scene.g)
         for e in new_g.edges():
@@ -123,13 +135,18 @@ class PauliWebsBasePanel(BasePanel):
             new_g.set_edata(e, "xweb1", False)
             new_g.set_edata(e, "zweb1", False)
 
-        if 0 <= self._pauli_web_index < len(self._pauli_webs):
-            web = self._pauli_webs[self._pauli_web_index]
-            for (s, t), pauli in web.half_edges().items():
+        if self._pauli_web_index:
+            web = self._pauli_webs[self._pauli_web_index[0]].half_edges()
+            for i in self._pauli_web_index[1:]:
+                next_web = self._pauli_webs[i].half_edges()
+                web = self.add_pauli_web(web, next_web)
+
+            for (s, t), pauli in web.items():
                 try:
                     edge = new_g.edge(s, t)
                 except Exception:
                     continue
+
                 if pauli in ("X", "Y") and s < t:
                     new_g.set_edata(edge, "xweb0", True)
                 if pauli in ("X", "Y") and s > t:
@@ -151,13 +168,14 @@ def create_titled_list_container(title: str) -> tuple[QWidget, QListWidget]:
 
     # Title Label
     title_label = QLabel(title)
-    title_label.setStyleSheet("font-weight: bold; padding: 6px; background-color: #f0f0f0;")
+    title_label.setStyleSheet("font-weight: bold; padding: 4px")
     layout.addWidget(title_label)
 
     # The List Widget
     list_widget = QListWidget()
     # Optional: remove border to make it look integrated
     list_widget.setStyleSheet("QListWidget { border: none; }")
+    list_widget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
     layout.addWidget(list_widget)
 
     return container, list_widget

@@ -34,10 +34,6 @@ class PauliWebsPanel(PauliWebsBasePanel):
         super().__init__(*actions)
         self.graph_scene = EditGraphScene()
 
-        self.graph_scene.vertices_moved.connect(self.vert_moved)
-        self.graph_scene.vertex_dropped_onto.connect(self._vertex_dropped_onto)
-        self.graph_scene.edge_dragged.connect(self.change_edge_curves)
-
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
 
@@ -47,17 +43,20 @@ class PauliWebsPanel(PauliWebsBasePanel):
 
         self.web_container, self.web_list = create_titled_list_container("Pauli Webs")
         self.splitter.addWidget(self.web_container)
-        self.web_list.itemClicked.connect(self._on_web_item_clicked)
+        self.web_list.itemSelectionChanged.connect(self._on_web_selection_changed)
 
         self._pauli_webs = []
-        self._pauli_web_index = -1
+        self._pauli_web_index = []
         self._compute_pauli_webs()
         
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
         yield from []
 
-    def _on_web_item_clicked(self, item: QListWidgetItem) -> None:
+    def _on_web_selection_changed(self) -> None:
         # Retrieve the index we stored in the item
-        index = item.data(Qt.ItemDataRole.UserRole)
-        self._pauli_web_index = index
+        selected_items = self.web_list.selectedItems()
+        if not selected_items:
+            self._pauli_web_index = []
+        else:
+            self._pauli_web_index = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
         self._show_current_pauli_web()
