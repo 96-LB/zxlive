@@ -132,7 +132,6 @@ class PauliWebsPanel(BasePanel):
             web = self._pauli_webs[self._pauli_web_index[0]]
             for i in self._pauli_web_index[1:]:
                 web *= self._pauli_webs[i]
-            cast(PauliWeb, web) # TODO: PauliWeb.__mul__ loses generic typing information; fix this in pyzx
             
             for (s, t), pauli in web.half_edges().items():
                 try:
