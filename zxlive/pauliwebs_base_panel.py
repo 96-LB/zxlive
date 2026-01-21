@@ -48,17 +48,7 @@ class PauliWebsBasePanel(BasePanel):
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
         self.patterns_folder = get_settings_value("patterns-folder", str)
-
-    def create_side_bar(self) -> None:
-        self.sidebar = QSplitter(self)
-        self.sidebar.setOrientation(Qt.Orientation.Vertical)
-
-        vertex_container, vertex_layout = create_titled_widget("sdfhsdf")
-        self.sidebar.addWidget(vertex_container)
-
-        edge_container, edge_layout = create_titled_widget("Edges")
-        self.sidebar.addWidget(edge_container)
-
+        
     def _compute_pauli_webs(self) -> None:
         # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
         graph_json = json.loads(self.graph_scene.g.to_json())
@@ -67,7 +57,7 @@ class PauliWebsBasePanel(BasePanel):
             edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
             unique_pairs = set(edge_pairs)
             has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
-
+            
             if has_duplicate_edges:
                 raise ValueError("Graph is a multigraph. Pauli web computation requires a simple graph.")
             
@@ -82,21 +72,40 @@ class PauliWebsBasePanel(BasePanel):
         except Exception as err:
             show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
             return
-
+        
         # Store the webs
         self._pauli_webs = stabs + regions
         
+        inputs = ()
+        outputs = ()
+        try:
+            self.graph.auto_detect_io()
+            inputs = self.graph.inputs()
+            outputs = self.graph.outputs()
+        except Exception:
+            show_error_msg("Warning: Could not auto-detect inputs/outputs for Pauli web computation", parent=self)
+        
         # Populate the list widget
         self.web_list.clear()
-
+        
         for i, web in enumerate(self._pauli_webs):
-            # Determine if it's a Stabilizer or Region for the label
-            label = f"Stabilizer {i+1}" if i < len(stabs) else f"Region {i - len(stabs) + 1}"
+            is_region = i >= len(stabs)
+            is_stab = any(e[0] in outputs or e[1] in outputs for e in web.half_edges())
+            is_costab = any(e[0] in inputs or e[1] in inputs for e in web.half_edges())
+            name = (
+                "Detecting Region" if is_region
+                else "Logical" if is_stab and is_costab
+                else "Co-stabiliser" if is_costab
+                else "Stabiliser" if is_stab
+                else "Pauli Web"
+            )
+            
+            label = f"{name} #{i + 1}"
             
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, i) # Store the index
             self.web_list.addItem(item)
-
+        
         if self._pauli_webs:
             self.web_list.setCurrentRow(0)
             self._pauli_web_index = []
@@ -179,4 +188,3 @@ def create_titled_list_container(title: str) -> tuple[QWidget, QListWidget]:
     layout.addWidget(list_widget)
 
     return container, list_widget
-

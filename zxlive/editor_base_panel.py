@@ -31,6 +31,7 @@ from .settings import display_setting
 
 from . import animations
 
+
 class ShapeType(Enum):
     CIRCLE = 1
     SQUARE = 2
@@ -69,7 +70,6 @@ class EditorBasePanel(BasePanel):
 
     graph_scene: EditGraphScene
     start_derivation_signal = Signal(object)
-    
     sidebar: QSplitter
 
     _curr_ety: EdgeType
@@ -213,7 +213,6 @@ class EditorBasePanel(BasePanel):
         cmd = SetGraph(self.graph_view, new_g) if len(set(rem_vertices)) > 128 \
             else UpdateGraph(self.graph_view, new_g)
         self.undo_stack.push(cmd)
-        self._clear_pauli_webs()
 
     def merge_vertices(self) -> None:
         """Merge selected vertices"""
@@ -253,13 +252,11 @@ class EditorBasePanel(BasePanel):
         else:
             self.undo_stack.push(AddNode(self.graph_view, x, y, self._curr_vty))
         self.play_sound_signal.emit(SFXEnum.THATS_A_SPIDER)
-        self._clear_pauli_webs()
 
     def add_edge(self, u: VT, v: VT, verts: list[VItem]) -> None:
         """Add an edge between vertices u and v. `verts` is a list of VItems that collide with the edge.
         If self.snap_vertex_edge is true, then we try to connect `u` through all the `vertices` in `verts`, and then to `v`.
         """
-        self._clear_pauli_webs()
         cmd: BaseCommand
         graph = self.graph_view.graph_scene.g
         if vertex_is_w(graph.type(u)) and get_w_partner(graph, u) == v:
@@ -346,7 +343,6 @@ class EditorBasePanel(BasePanel):
             new_vars = graph.var_registry.vars() - old_variables
             for nv in new_vars:
                 self.variable_viewer.add_item(nv)
-    
 
 
 class VariableViewer(QScrollArea):
@@ -726,4 +722,3 @@ def create_icon(shape: ShapeType, color: QColor) -> QIcon:
 
 def string_to_complex(string: str) -> complex:
     return complex(string) if string else complex(0)
-
