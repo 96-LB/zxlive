@@ -1,31 +1,33 @@
 from __future__ import annotations
 
 import copy
-from typing import Iterator, Optional
+from typing import Iterator, Optional, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (QLabel, QListWidget,
                                QListWidgetItem, QSplitter, QVBoxLayout, QWidget)
-from pyzx import EdgeType, VertexType
+from pyzx import EdgeType, VertexType, pauliweb
 from zxlive.graphview import GraphView
 
 from .base_panel import BasePanel, ToolbarSection
 from .commands import UpdateGraph
 from .common import GraphT, get_settings_value
 from .dialogs import show_error_msg
-from .graphscene import EditGraphScene
+from .graphscene import EditGraphScene, GraphScene
 
 
 import json
 from pyzx.graph.jsonparser import json_to_graph
 from pyzx.web import compute_pauli_webs
 
+# type alias
+PauliWeb = pauliweb.PauliWeb[int, tuple[int ,int]]
 
 class PauliWebsPanel(BasePanel):
     """write something here"""
-
-    graph_scene: EditGraphScene
+    
+    graph_scene: GraphScene
     sidebar: QSplitter
 
     _curr_ety: EdgeType
@@ -39,7 +41,7 @@ class PauliWebsPanel(BasePanel):
         self._curr_ety = EdgeType.SIMPLE
         self.patterns_folder = get_settings_value("patterns-folder", str)
         
-        self.graph_scene = EditGraphScene()
+        self.graph_scene = GraphScene()
         
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
@@ -52,8 +54,8 @@ class PauliWebsPanel(BasePanel):
         self.splitter.addWidget(self.web_container)
         self.web_list.itemSelectionChanged.connect(self._on_web_selection_changed)
         
-        self._pauli_webs = []
-        self._pauli_web_index = []
+        self._pauli_webs: list[PauliWeb] = []
+        self._pauli_web_index: list[int] = []
         self._compute_pauli_webs()
         
     def _compute_pauli_webs(self) -> None:
@@ -117,32 +119,7 @@ class PauliWebsPanel(BasePanel):
             self.web_list.setCurrentRow(0)
             self._pauli_web_index = []
             self._show_current_pauli_web()
-
-
-    def add_pauli_web(self, web1, web2) -> None:
-        # Mapping letters to numbers for XOR logic
-        to_num = {'X': 1, 'Y': 2, 'Z': 3}
-        to_char = {1: 'X', 2: 'Y', 3: 'Z'}
-        
-        result = {}
-        
-        # Get all unique keys from both dictionaries
-        all_keys = set(web1.keys()) | set(web2.keys())
-        
-        for key in all_keys:
-            # Get the numeric value (0 if key doesn't exist in that dict)
-            val1 = to_num.get(web1.get(key), 0)
-            val2 = to_num.get(web2.get(key), 0)
-            
-            # Perform XOR addition
-            combined_val = val1 ^ val2
-            
-            # If the result isn't 0 (not cancelled out), add back to dictionary
-            if combined_val != 0:
-                result[key] = to_char[combined_val]
-                
-        return result
-        
+    
     def _show_current_pauli_web(self) -> None:
         new_g = copy.deepcopy(self.graph_scene.g)
         for e in new_g.edges():
@@ -152,17 +129,17 @@ class PauliWebsPanel(BasePanel):
             new_g.set_edata(e, "zweb1", False)
 
         if self._pauli_web_index:
-            web = self._pauli_webs[self._pauli_web_index[0]].half_edges()
+            web = self._pauli_webs[self._pauli_web_index[0]]
             for i in self._pauli_web_index[1:]:
-                next_web = self._pauli_webs[i].half_edges()
-                web = self.add_pauli_web(web, next_web)
-
-            for (s, t), pauli in web.items():
+                web *= self._pauli_webs[i]
+            cast(PauliWeb, web) # TODO: PauliWeb.__mul__ loses generic typing information; fix this in pyzx
+            
+            for (s, t), pauli in web.half_edges().items():
                 try:
                     edge = new_g.edge(s, t)
                 except Exception:
                     continue
-
+                
                 if pauli in ("X", "Y") and s < t:
                     new_g.set_edata(edge, "xweb0", True)
                 if pauli in ("X", "Y") and s > t:
@@ -171,7 +148,7 @@ class PauliWebsPanel(BasePanel):
                     new_g.set_edata(edge, "zweb0", True)
                 if pauli in ("Z", "Y") and s > t:
                     new_g.set_edata(edge, "zweb1", True)
-
+        
         self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
         self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
     
