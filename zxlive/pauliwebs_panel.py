@@ -4,15 +4,15 @@ import copy
 from typing import Iterator, Optional, cast
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor, QBrush
 from PySide6.QtWidgets import (QLabel, QListWidget,
-                               QListWidgetItem, QSplitter, QVBoxLayout, QWidget)
+                               QListWidgetItem, QSplitter, QVBoxLayout, QWidget, QToolButton)
 from pyzx import EdgeType, VertexType, pauliweb
 from zxlive.graphview import GraphView
 
 from .base_panel import BasePanel, ToolbarSection
 from .commands import UpdateGraph
-from .common import GraphT, get_settings_value
+from .common import VT, GraphT, get_settings_value
 from .dialogs import show_error_msg
 from .graphscene import EditGraphScene, GraphScene
 
@@ -37,14 +37,14 @@ class PauliWebsPanel(BasePanel):
 
     def __init__(self,  graph: GraphT, *actions: QAction) -> None:
         super().__init__(*actions)
+        self.graph_scene = GraphScene()
+
+        self.graph_scene.edge_double_clicked.connect(self.edge_double_clicked)
+
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
         self.patterns_folder = get_settings_value("patterns-folder", str)
         
-        self.graph_scene = GraphScene()
-        
-        self._curr_vty = VertexType.Z
-        self._curr_ety = EdgeType.SIMPLE
         
         self.graph_view = GraphView(self.graph_scene)
         self.splitter.addWidget(self.graph_view)
@@ -57,6 +57,8 @@ class PauliWebsPanel(BasePanel):
         self._pauli_webs: list[PauliWeb] = []
         self._pauli_web_index: list[int] = []
         self._compute_pauli_webs()
+
+        self.edge_clicked = False
         
     def _compute_pauli_webs(self) -> None:
         # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
@@ -116,7 +118,7 @@ class PauliWebsPanel(BasePanel):
             self.web_list.addItem(item)
         
         if self._pauli_webs:
-            self.web_list.setCurrentRow(0)
+            self.web_list.setCurrentRow(-1)
             self._pauli_web_index = []
             self._show_current_pauli_web()
     
@@ -161,8 +163,29 @@ class PauliWebsPanel(BasePanel):
         self._show_current_pauli_web()
     
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
-        yield from []
+        self.clear_pauli_webs = QToolButton(self)
+        self.clear_pauli_webs.setText("Clear Pauli Webs")
+        self.clear_pauli_webs.clicked.connect(self._clear_pauli_webs)
+        yield ToolbarSection(self.clear_pauli_webs)
 
+    def _clear_pauli_webs(self) -> None:
+        self._pauli_web_index = []
+        self.web_list.clearSelection()
+        self._show_current_pauli_web()
+    def edge_double_clicked(self, v: VT) -> None:
+        for i,web in enumerate(self._pauli_webs):
+                edge = (v[0], v[1])
+                if edge in web.half_edges():
+                    item = self.web_list.item(i)
+                    if item:
+                        if not self.edge_clicked:
+                            item.setBackground(QColor("#FFCCCC"))
+                        else:
+                            item.setBackground(QBrush())
+                    
+        self.edge_clicked = not self.edge_clicked
+
+            
 
 def create_titled_list_container(title: str) -> tuple[QWidget, QListWidget]:
     container = QWidget()
