@@ -160,7 +160,19 @@ class EItem(QGraphicsPathItem):
         xweb0 = self.g.edata(self.e, "xweb0")
         zweb1 = self.g.edata(self.e, "zweb1")
         xweb1 = self.g.edata(self.e, "xweb1")
+        highlight = self.g.edata(self.e, "highlight")
         
+        if highlight:
+            highlight_thickness = 4.7 if (zweb0 and xweb0) or (zweb1 and xweb1) else 3.7 if (zweb0 or zweb1 or xweb0 or xweb1) else 2.7
+            highlight_pen = QPen(pen)
+            highlight_pen.setWidthF(self.thickness * highlight_thickness)
+            highlight_pen.setColor(QColor("#FFC107"))
+            highlight_pen.setStyle(Qt.PenStyle.SolidLine)
+            highlight_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            self.setPen(highlight_pen)
+            super().paint(painter, option, widget)
+            self.setPen(pen)
+
         if zweb0 or zweb1:
             z_thickness = 3.5 if (zweb0 and xweb0) or (zweb1 and xweb1) else 2.5
             z_path = path if zweb0 and zweb1 else (self.half_path_left if zweb0 else self.half_path_right)

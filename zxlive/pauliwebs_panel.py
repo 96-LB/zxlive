@@ -4,7 +4,7 @@ import copy
 from typing import Iterator, Optional, cast
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor, QBrush
+from PySide6.QtGui import QAction, QColor, QBrush, QFont
 from PySide6.QtWidgets import (QLabel, QListWidget,
                                QListWidgetItem, QSplitter, QVBoxLayout, QWidget, QToolButton)
 from pyzx import EdgeType, VertexType, pauliweb
@@ -40,7 +40,7 @@ class PauliWebsPanel(BasePanel):
         self.graph_scene = GraphScene()
 
         self.graph_scene.edge_double_clicked.connect(self.edge_double_clicked)
-
+        self.graph_scene.background_double_clicked.connect(self.on_background_double_clicked)
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
         self.patterns_folder = get_settings_value("patterns-folder", str)
@@ -171,19 +171,35 @@ class PauliWebsPanel(BasePanel):
         self._pauli_web_index = []
         self.web_list.clearSelection()
         self._show_current_pauli_web()
-    def edge_double_clicked(self, v: VT) -> None:
-        for i,web in enumerate(self._pauli_webs):
-                edge = (v[0], v[1])
-                if edge in web.half_edges():
-                    item = self.web_list.item(i)
-                    if item:
-                        if not self.edge_clicked:
-                            item.setBackground(QColor("#FFCCCC"))
-                        else:
-                            item.setBackground(QBrush())
-                    
-        self.edge_clicked = not self.edge_clicked
 
+    def edge_double_clicked(self, v: VT) -> None:
+        for edge in self.graph_scene.g.edges():
+            self.graph_scene.g.set_edata(edge, "highlight", False)
+
+        e = self.graph_scene.g.edge(v[0], v[1])
+        self.graph_scene.g.set_edata(e, "highlight", True)
+
+        for i,web in enumerate(self._pauli_webs):
+            item = self.web_list.item(i)
+            item.setForeground(QBrush())
+            item.setFont(QFont())
+            if (v[0], v[1]) in web.half_edges():
+                if item:
+                    item.setForeground(QColor("#FFC107"))
+                    font = QFont()
+                    font.setBold(True)
+                    font.setPointSize(10)  # Optional: Make it larger too
+                    item.setFont(font)
+        self.graph_scene.invalidate()
+
+    def on_background_double_clicked(self) -> None:
+        for edge in self.graph_scene.g.edges():
+            self.graph_scene.g.set_edata(edge, "highlight", False)
+
+        for i in range(self.web_list.count()):
+            item = self.web_list.item(i)
+            item.setForeground(QBrush())
+            item.setFont(QFont())
             
 
 def create_titled_list_container(title: str) -> tuple[QWidget, QListWidget]:

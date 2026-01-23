@@ -51,6 +51,7 @@ class GraphScene(QGraphicsScene):
     # Triggers when an edge is dragged. Actual types: EItem, float (old curve_distance), float (new curve_distance)
     edge_dragged = Signal(object, object, object)
     edge_double_clicked = Signal(object)  # Actual type: ET
+    background_double_clicked = Signal()
 
     selection_changed_custom = Signal()
     add_selection_as_pattern_signal = Signal()
@@ -68,6 +69,16 @@ class GraphScene(QGraphicsScene):
             self.setBackgroundBrush(QBrush(QColor(30, 30, 30)))
         else:
             self.setBackgroundBrush(QBrush(QColor(255, 255, 255)))
+
+    def mouseDoubleClickEvent(self, event):
+        # 1. Check if there is an item at the position of the click
+        item = self.itemAt(event.scenePos(), self.views()[0].transform())
+        
+        if item is None:
+            self.background_double_clicked.emit()
+            super().mouseDoubleClickEvent(event)
+        else:
+            super().mouseDoubleClickEvent(event)
 
     @property
     def selected_vertices(self) -> Iterator[VT]:
