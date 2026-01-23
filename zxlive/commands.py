@@ -59,8 +59,14 @@ class UndoableChange(BaseCommand):
     Where <parent> must contain the graph_view attribute as it is used in
     BaseCommand.
     """
-    undo: Callable[[], None]
-    redo: Callable[[], None]
+    undo_cmd: Callable[[], None]
+    redo_cmd: Callable[[], None]
+    
+    def undo(self) -> None:
+        self.undo_cmd()
+    
+    def redo(self) -> None:
+        self.redo_cmd()
 
 
 class ProofModeCommand(QUndoCommand):

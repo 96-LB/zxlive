@@ -325,7 +325,7 @@ def make_animation(self: RewriteAction, panel: ProofPanel, g: GraphT, matches: l
             panel.graph.set_qubit(v2, v2_qubit)
     elif isinstance(self.rule, CustomRule) and self.rule.last_rewrite_center is not None:
         center = self.rule.last_rewrite_center
-        duration = ANIMATION_DURATION / 2
+        duration = ANIMATION_DURATION // 2
         anim_before = morph_graph_to_center(panel.graph, lambda v: v not in g.graph,
                                             panel.graph_scene, center, duration,
                                             QEasingCurve(QEasingCurve.Type.InQuad))
