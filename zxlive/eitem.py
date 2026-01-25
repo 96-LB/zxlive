@@ -154,9 +154,6 @@ class EItem(QGraphicsPathItem):
         assert hasattr(option, "state")
         option.state &= ~QStyle.StateFlag.State_Selected
         
-        path = self.path()
-        pen = self.pen()
-        
         swap = get_settings_value("swap-pauli-web-colors", bool)
         zweb0 = self.g.edata(self.e, "xweb0" if swap else "zweb0")
         zweb1 = self.g.edata(self.e, "xweb1" if swap else "zweb1")
