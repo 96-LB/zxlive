@@ -25,7 +25,7 @@ from PySide6.QtGui import QPen, QPainter, QColor, QPainterPath, QPainterPathStro
 
 from pyzx.utils import EdgeType, VertexType
 
-from .common import SCALE, ET, GraphT
+from .common import SCALE, ET, GraphT, get_settings_value
 from .settings import display_setting
 from .vitem import VItem, EITEM_Z
 
@@ -161,6 +161,40 @@ class EItem(QGraphicsPathItem):
         zweb1 = self.g.edata(self.e, "zweb1")
         xweb1 = self.g.edata(self.e, "xweb1")
         
+        swap = get_settings_value("swap-pauli-web-colors", bool)
+        zcolor = display_setting.effective_colors["x_spider" if swap else "z_spider"]
+        xcolor = display_setting.effective_colors["z_spider" if swap else "x_spider"]
+        ycolor = display_setting.effective_colors["y_pauli_web"]
+        
+        
+        # only draw y webs if the setting is enabled
+        if get_settings_value("blue-y-pauli-web", bool):
+            yweb0 = zweb0 and xweb0
+            yweb1 = zweb1 and xweb1
+            
+            # if we're drawing y webs, we shouldn't draw the corresponding x and z webs
+            zweb0 = zweb0 and not yweb0
+            zweb1 = zweb1 and not yweb1
+            xweb0 = xweb0 and not yweb0
+            xweb1 = xweb1 and not yweb1
+            
+            if yweb0 or yweb1:
+                y_thickness = 2.5
+                y_path = path if yweb0 and yweb1 else (self.half_path_left if yweb0 else self.half_path_right)
+                y_path = y_path or path # fallback if half paths are not defined (self-loops)
+                
+                y_pen = QPen(pen)
+                y_pen.setWidthF(self.thickness * y_thickness)
+                y_pen.setColor(ycolor)
+                y_pen.setStyle(Qt.PenStyle.SolidLine)
+                y_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                
+                self.setPen(y_pen)
+                self.setPath(y_path)
+                super().paint(painter, option, widget)
+                self.setPen(pen)
+                self.setPath(path)
+        
         if zweb0 or zweb1:
             z_thickness = 3.5 if (zweb0 and xweb0) or (zweb1 and xweb1) else 2.5
             z_path = path if zweb0 and zweb1 else (self.half_path_left if zweb0 else self.half_path_right)
@@ -168,7 +202,7 @@ class EItem(QGraphicsPathItem):
             
             z_pen = QPen(pen)
             z_pen.setWidthF(self.thickness * z_thickness)
-            z_pen.setColor(display_setting.effective_colors["z_spider"])
+            z_pen.setColor(zcolor)
             z_pen.setStyle(Qt.PenStyle.SolidLine)
             z_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             
@@ -185,7 +219,7 @@ class EItem(QGraphicsPathItem):
             
             x_pen = QPen(pen)
             x_pen.setWidthF(self.thickness * x_thickness)
-            x_pen.setColor(display_setting.effective_colors["x_spider"])
+            x_pen.setColor(xcolor)
             x_pen.setStyle(Qt.PenStyle.SolidLine)
             x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             self.setPen(x_pen)
@@ -195,7 +229,9 @@ class EItem(QGraphicsPathItem):
             self.setPath(path)
         
         super().paint(painter, option, widget)
-
+    
+    # TODO: cap - paint web function
+    
     def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
         # Intercept selection- and position-has-changed events to call `refresh`.
         # Note that the position and selected values are already updated when
