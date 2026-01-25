@@ -156,16 +156,16 @@ class EItem(QGraphicsPathItem):
         
         path = self.path()
         pen = self.pen()
-        zweb0 = self.g.edata(self.e, "zweb0")
-        xweb0 = self.g.edata(self.e, "xweb0")
-        zweb1 = self.g.edata(self.e, "zweb1")
-        xweb1 = self.g.edata(self.e, "xweb1")
         
         swap = get_settings_value("swap-pauli-web-colors", bool)
-        zcolor = display_setting.effective_colors["x_spider" if swap else "z_spider"]
-        xcolor = display_setting.effective_colors["z_spider" if swap else "x_spider"]
-        ycolor = display_setting.effective_colors["y_pauli_web"]
+        zweb0 = self.g.edata(self.e, "zweb0" if swap else "xweb0")
+        xweb0 = self.g.edata(self.e, "xweb0" if swap else "zweb0")
+        zweb1 = self.g.edata(self.e, "zweb1" if swap else "xweb1")
+        xweb1 = self.g.edata(self.e, "xweb1" if swap else "zweb1")
         
+        zcolor = display_setting.effective_colors["z_pauli_web"]
+        xcolor = display_setting.effective_colors["x_pauli_web"]
+        ycolor = display_setting.effective_colors["y_pauli_web"]
         
         # only draw y webs if the setting is enabled
         if get_settings_value("blue-y-pauli-web", bool):
