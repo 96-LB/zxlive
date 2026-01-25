@@ -158,10 +158,10 @@ class EItem(QGraphicsPathItem):
         pen = self.pen()
         
         swap = get_settings_value("swap-pauli-web-colors", bool)
-        zweb0 = self.g.edata(self.e, "zweb0" if swap else "xweb0")
-        xweb0 = self.g.edata(self.e, "xweb0" if swap else "zweb0")
-        zweb1 = self.g.edata(self.e, "zweb1" if swap else "xweb1")
-        xweb1 = self.g.edata(self.e, "xweb1" if swap else "zweb1")
+        zweb0 = self.g.edata(self.e, "xweb0" if swap else "zweb0")
+        zweb1 = self.g.edata(self.e, "xweb1" if swap else "zweb1")
+        xweb0 = self.g.edata(self.e, "zweb0" if swap else "xweb0")
+        xweb1 = self.g.edata(self.e, "zweb1" if swap else "xweb1")
         
         zcolor = display_setting.effective_colors["z_pauli_web"]
         xcolor = display_setting.effective_colors["x_pauli_web"]
@@ -178,59 +178,37 @@ class EItem(QGraphicsPathItem):
             xweb0 = xweb0 and not yweb0
             xweb1 = xweb1 and not yweb1
             
-            if yweb0 or yweb1:
-                y_thickness = 2.5
-                y_path = path if yweb0 and yweb1 else (self.half_path_left if yweb0 else self.half_path_right)
-                y_path = y_path or path # fallback if half paths are not defined (self-loops)
-                
-                y_pen = QPen(pen)
-                y_pen.setWidthF(self.thickness * y_thickness)
-                y_pen.setColor(ycolor)
-                y_pen.setStyle(Qt.PenStyle.SolidLine)
-                y_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                
-                self.setPen(y_pen)
-                self.setPath(y_path)
-                super().paint(painter, option, widget)
-                self.setPen(pen)
-                self.setPath(path)
+            self._paint_pauli_web(painter, option, widget, ycolor, left_flag=yweb0, right_flag=yweb1)
         
-        if zweb0 or zweb1:
-            z_thickness = 3.5 if (zweb0 and xweb0) or (zweb1 and xweb1) else 2.5
-            z_path = path if zweb0 and zweb1 else (self.half_path_left if zweb0 else self.half_path_right)
-            z_path = z_path or path # fallback if half paths are not defined (self-loops)
-            
-            z_pen = QPen(pen)
-            z_pen.setWidthF(self.thickness * z_thickness)
-            z_pen.setColor(zcolor)
-            z_pen.setStyle(Qt.PenStyle.SolidLine)
-            z_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            
-            self.setPen(z_pen)
-            self.setPath(z_path)
-            super().paint(painter, option, widget)
-            self.setPen(pen)
-            self.setPath(path)
-        
-        if xweb0 or xweb1:
-            x_thickness = 2.5
-            x_path = path if xweb0 and xweb1 else (self.half_path_left if xweb0 else self.half_path_right)
-            x_path = x_path or path # fallback if half paths are not defined (self-loops)
-            
-            x_pen = QPen(pen)
-            x_pen.setWidthF(self.thickness * x_thickness)
-            x_pen.setColor(xcolor)
-            x_pen.setStyle(Qt.PenStyle.SolidLine)
-            x_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            self.setPen(x_pen)
-            self.setPath(x_path)
-            super().paint(painter, option, widget)
-            self.setPen(pen)
-            self.setPath(path)
+        self._paint_pauli_web(painter, option, widget, zcolor, left_flag=zweb0, right_flag=zweb1, inner_left_flag=xweb0, inner_right_flag=xweb1)
+        self._paint_pauli_web(painter, option, widget, xcolor, left_flag=xweb0, right_flag=xweb1)
         
         super().paint(painter, option, widget)
     
-    # TODO: cap - paint web function
+    def _paint_pauli_web(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget],
+                         color: QColor, *, left_flag: bool, right_flag: bool, inner_left_flag: bool = False, inner_right_flag: bool = False) -> None:
+        """Draws a colored Pauli web on the edge if specified by the flags. If the inner flags are set, the web is drawn thicker."""
+        
+        if not (left_flag or right_flag):
+            return
+        
+        old_path = self.path()
+        old_pen = self.pen()
+        
+        path = old_path if left_flag and right_flag else (self.half_path_left if left_flag else self.half_path_right)
+        path = path or old_path # fallback if half paths are not defined (self-loops)
+        thickness = 3.5 if (left_flag and inner_left_flag) or (right_flag and inner_right_flag) else 2.5
+        
+        pen = QPen(old_pen)
+        pen.setWidthF(self.thickness * thickness)
+        pen.setColor(color)
+        pen.setStyle(Qt.PenStyle.SolidLine)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        self.setPen(pen)
+        self.setPath(path)
+        super().paint(painter, option, widget)
+        self.setPen(old_pen)
+        self.setPath(old_path)
     
     def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
         # Intercept selection- and position-has-changed events to call `refresh`.
