@@ -96,32 +96,56 @@ class PauliWebsPanel(BasePanel):
         except Exception:
             show_error_msg("Warning: Could not auto-detect inputs/outputs for Pauli web computation", parent=self)
         
-        # Populate the list widget
-        self.web_list.clear()
-        
+        priority_map = {
+    "Logical": 0,
+    "Co-stabiliser": 1,
+    "Stabiliser": 2,
+    "Detecting Region": 3,
+    "Pauli Web": 4
+}
+
+        # 1. Map every web to its type and current object
+        annotated_webs = []
         for i, web in enumerate(self._pauli_webs):
             is_region = i >= len(stabs)
             is_stab = any(e[0] in outputs or e[1] in outputs for e in web.half_edges())
             is_costab = any(e[0] in inputs or e[1] in inputs for e in web.half_edges())
-            name = (
+            
+            web_type = (
                 "Detecting Region" if is_region
                 else "Logical" if is_stab and is_costab
                 else "Co-stabiliser" if is_costab
                 else "Stabiliser" if is_stab
                 else "Pauli Web"
             )
+            annotated_webs.append({'type': web_type, 'obj': web})
+
+        # 2. Sort the annotated list based on priority_map
+        annotated_webs.sort(key=lambda x: priority_map[x['type']])
+
+        # 3. OVERWRITE the actual data list with the new order
+        self._pauli_webs = [item['obj'] for item in annotated_webs]
+
+        # 4. Populate the UI using the now-sorted self._pauli_webs
+        self.web_list.clear()
+        type_counts = {name: 0 for name in priority_map.keys()}
+
+        for i, web in enumerate(self._pauli_webs):
+            # Re-identify type (since we just sorted them, they are grouped)
+            # We use the same logic or just grab it from our sorted list
+            current_type = annotated_webs[i]['type']
             
-            label = f"{name} #{i + 1}"
+            type_counts[current_type] += 1
+            label = f"{current_type} #{type_counts[current_type]}"
             
             item = QListWidgetItem(label)
-            item.setData(Qt.ItemDataRole.UserRole, i) # Store the index
+            item.setData(Qt.ItemDataRole.UserRole, i) # Index now matches the new list order
             self.web_list.addItem(item)
-        
         if self._pauli_webs:
             self.web_list.setCurrentRow(-1)
             self._pauli_web_index = []
             self._show_current_pauli_web()
-    
+
     def _show_current_pauli_web(self) -> None:
         new_g = copy.deepcopy(self.graph_scene.g)
         for e in new_g.edges():
