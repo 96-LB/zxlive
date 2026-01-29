@@ -1,8 +1,6 @@
 # Using the Pauli Web Panel in ZXLive
 
-The Pauli Web panel in ZXLive provides tools for working with generating Pauli webs, visualizing their structure, and interacting with diagram edges. This page explains how to use the panel and its main functionality.
-
-The Pauli Web computation comes from the Pyzx library `web`, specifically the function `compute_pauli_webs`.
+The Pauli Web panel in ZXLive provides tools for working with generating Pauli webs, visualizing their structure, and interacting with diagram edges. This page explains how to use the panel and its main functionality. The Pauli webs are computed by PyZX.
 
 ## Overview
 
@@ -15,7 +13,7 @@ The Pauli Web panel allows you to:
 * Configure visualization conventions in the settings
 
 
-**Where to find the Pauli Web panel**  
+**Where to find the Pauli Web panel**
 The Pauli Web panel can be accessed by clicking the Pauli Webs button in the toolbar.
 
 ![Pauli Web Panel Location](./_static/pauliwebs_button.png)
@@ -107,7 +105,5 @@ You can configure:
 
 ## Notes
 
-* Make sure the diagram is a Clifford diagram, as Pauli webs can only be computed for Clifford diagrams in Pyzx
-* Make sure the diagram is a simple graph (no more then one edge between two vertices) as Pauli webs can only be computed for simple graphs in Pyzx.
-
-
+* Make sure the diagram is a Clifford diagram, as Pauli webs can only be computed for Clifford diagrams in PyZX
+* Make sure the diagram is a simple graph (no more then one edge between two vertices) as Pauli webs can only be computed for simple graphs in PyZX.
