@@ -73,7 +73,7 @@ class EItem(QGraphicsPathItem):
         self.thickness: float = 3
         self.color: QColor = QColor()
         self.reset_color()
-        
+
         self.refresh()
 
     @property
@@ -121,7 +121,7 @@ class EItem(QGraphicsPathItem):
                          s_pos + QPointF(-1, -1) * cd * SCALE,
                          s_pos)
             curve_midpoint = s_pos + QPointF(0, -0.75) * cd * SCALE
-            
+
             # we don't care about half-paths for self loops, since they won't be colored
             self.half_path_left = None
             self.half_path_right = None
@@ -130,19 +130,19 @@ class EItem(QGraphicsPathItem):
             path.moveTo(self.s_item.pos())
             path.quadTo(control_point, self.t_item.pos())
             curve_midpoint = self.s_item.pos() * 0.25 + control_point * 0.5 + self.t_item.pos() * 0.25
-            
+
             half_path_left = QPainterPath()
             half_control_left = (self.s_item.pos() + control_point) * 0.5
             half_path_left.moveTo(self.s_item.pos())
             half_path_left.quadTo(half_control_left, curve_midpoint)
             self.half_path_left = half_path_left
-            
+
             half_path_right = QPainterPath()
             half_control_right = (self.t_item.pos() + control_point) * 0.5
             half_path_right.moveTo(curve_midpoint)
             half_path_right.quadTo(half_control_right, self.t_item.pos())
             self.half_path_right = half_path_right
-        
+
         self.setPath(path)
         self.selection_node.setPos(curve_midpoint.x(), curve_midpoint.y())
         self.selection_node.setVisible(self.isSelected())
@@ -151,67 +151,81 @@ class EItem(QGraphicsPathItem):
         # By default, Qt draws a dashed rectangle around selected items.
         # We have our own implementation to draw selected vertices, so
         # we intercept the selected option here.
+        # The type stub is missing the 'state' attribute, so there is a
+        # false positive mypy error if we set the usual way.
         assert hasattr(option, "state")
-        option.state &= ~QStyle.StateFlag.State_Selected
-        
-        path = self.path()
-        pen = self.pen()
-        highlight = self.g.edata(self.e, "highlight")
+        state = getattr(option, "state")
+        setattr(option, "state", state & ~QStyle.StateFlag.State_Selected)
+
+        webs: list[tuple[bool, bool, QColor]] = []
 
         swap = get_settings_value("swap-pauli-web-colors", bool)
         zweb0 = self.g.edata(self.e, "xweb0" if swap else "zweb0")
         zweb1 = self.g.edata(self.e, "xweb1" if swap else "zweb1")
         xweb0 = self.g.edata(self.e, "zweb0" if swap else "xweb0")
         xweb1 = self.g.edata(self.e, "zweb1" if swap else "xweb1")
-        
-        if highlight:
-            highlight_thickness = 4.7 if (zweb0 and xweb0) or (zweb1 and xweb1) else 3.7 if (zweb0 or zweb1 or xweb0 or xweb1) else 2.7
-            highlight_pen = QPen(pen)
-            highlight_pen.setWidthF(self.thickness * highlight_thickness)
-            highlight_pen.setColor(QColor("#FFC107"))
-            highlight_pen.setStyle(Qt.PenStyle.SolidLine)
-            highlight_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            self.setPen(highlight_pen)
-            super().paint(painter, option, widget)
-            self.setPen(pen)
 
-        
+        highlight = self.g.edata(self.e, "highlight")
+        webs.append((highlight, highlight, QColor("#FFC107")))  # highlight web
+
         zcolor = display_setting.effective_colors["z_pauli_web"]
         xcolor = display_setting.effective_colors["x_pauli_web"]
         ycolor = display_setting.effective_colors["y_pauli_web"]
-        
+
         # only draw y webs if the setting is enabled
         if get_settings_value("blue-y-pauli-web", bool):
             yweb0 = zweb0 and xweb0
             yweb1 = zweb1 and xweb1
-            
+
             # if we're drawing y webs, we shouldn't draw the corresponding x and z webs
             zweb0 = zweb0 and not yweb0
             zweb1 = zweb1 and not yweb1
             xweb0 = xweb0 and not yweb0
             xweb1 = xweb1 and not yweb1
-            
-            self._paint_pauli_web(painter, option, widget, ycolor, left_flag=yweb0, right_flag=yweb1)
-        
-        self._paint_pauli_web(painter, option, widget, zcolor, left_flag=zweb0, right_flag=zweb1, inner_left_flag=xweb0, inner_right_flag=xweb1)
-        self._paint_pauli_web(painter, option, widget, xcolor, left_flag=xweb0, right_flag=xweb1)
-        
+
+            webs.append((yweb0, yweb1, ycolor))
+
+        webs.append((zweb0, zweb1, zcolor))
+        webs.append((xweb0, xweb1, xcolor))
+
+        # determine thicknesses for each web
+        thicknesses: list[float] = []
+        left_thickness = 2.5
+        right_thickness = 2.5
+        for left, right, _ in reversed(webs):
+            if left and right:
+                thickness = max(left_thickness, right_thickness)
+                thicknesses.append(thickness)
+                left_thickness = right_thickness = thickness + 1
+            elif left:
+                thicknesses.append(left_thickness)
+                left_thickness += 1
+            elif right:
+                thicknesses.append(right_thickness)
+                right_thickness += 1
+            else:
+                thicknesses.append(0)
+        thicknesses.reverse()
+
+        # draw webs from outermost to innermost
+        for (left, right, color), thickness in zip(webs, thicknesses):
+                self._paint_pauli_web(painter, option, widget, color, thickness, left=left, right=right)
+
         super().paint(painter, option, widget)
-    
+
     def _paint_pauli_web(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget],
-                         color: QColor, *, left_flag: bool, right_flag: bool, inner_left_flag: bool = False, inner_right_flag: bool = False) -> None:
-        """Draws a colored Pauli web on the edge if specified by the flags. If the inner flags are set, the web is drawn thicker."""
-        
-        if not (left_flag or right_flag):
+                         color: QColor, thickness: float, *, left: bool, right: bool) -> None:
+        """Draws a colored Pauli web on the edge if specified by the flags."""
+
+        if not (left or right):
             return
-        
+
         old_path = self.path()
         old_pen = self.pen()
-        
-        path = old_path if left_flag and right_flag else (self.half_path_left if left_flag else self.half_path_right)
+
+        path = old_path if left and right else (self.half_path_left if left else self.half_path_right)
         path = path or old_path # fallback if half paths are not defined (self-loops)
-        thickness = 3.5 if (left_flag and inner_left_flag) or (right_flag and inner_right_flag) else 2.5
-        
+
         pen = QPen(old_pen)
         pen.setWidthF(self.thickness * thickness)
         pen.setColor(color)
@@ -222,7 +236,7 @@ class EItem(QGraphicsPathItem):
         super().paint(painter, option, widget)
         self.setPen(old_pen)
         self.setPath(old_path)
-    
+
     def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
         # Intercept selection- and position-has-changed events to call `refresh`.
         # Note that the position and selected values are already updated when
