@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 from collections import namedtuple
 from dataclasses import dataclass, field
-from enum import IntFlag
 from fractions import Fraction
 from typing import Callable, Iterable, Optional, Set, Union
 

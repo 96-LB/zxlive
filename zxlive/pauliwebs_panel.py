@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Iterator, Optional, cast
+from typing import Iterator, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QColor, QBrush, QFont
