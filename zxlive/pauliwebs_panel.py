@@ -61,7 +61,7 @@ class PauliWebsPanel(BasePanel):
         self.edge_clicked = False
         
     def _compute_pauli_webs(self) -> None:
-        # Kees: Convert to simple graph for Pauli web computation, should change in pyzx that Multigraphs also work
+        # First convert the graph to a simple graph so that pyzx can compute the pauli webs
         graph_json = json.loads(self.graph_scene.g.to_json())
         
         try:
