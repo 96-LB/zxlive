@@ -630,6 +630,7 @@ class MainWindow(QMainWindow):
         panel = ProofPanel(graph, self.undo_action, self.redo_action)
         if name is None:
             name = "New Proof"
+        panel.start_pauliwebs_signal.connect(self.new_pauli_webs)
         self._new_panel(panel, name)
 
     def new_pauli_webs(self, graph: GraphT, name: Optional[str] = None) -> None:

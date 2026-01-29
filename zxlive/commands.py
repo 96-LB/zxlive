@@ -517,39 +517,3 @@ class UngroupRewriteSteps(BaseCommand):
     def undo(self) -> None:
         self.step_view.model().group_steps(self.group_index, self.group_index + 1)
         self.step_view.move_to_step(self.group_index + 1)
-
-
-@dataclass
-class SetPauliWeb(BaseCommand):
-    """Sets the Pauli web type of an edge."""
-    
-    class Pauli(IntFlag):
-        I = 0
-        X = 1
-        Z = 2
-        Y = 3 # this order is intentional, as Y = X | Z
-
-    edge: ET
-    pauli_type: Pauli
-    _old_pauli: Optional[Pauli] = field(default=None, init=False)
-    
-    def _set_pauli_type(self, pauli: Pauli) -> None:
-        Pauli = SetPauliWeb.Pauli
-        
-        old_x = Pauli.X if self.g.edata(self.edge, "xweb") else Pauli.I
-        old_z = Pauli.Z if self.g.edata(self.edge, "zweb") else Pauli.I
-        self._old_pauli = old_x | old_z
-        
-        new_x = pauli & Pauli.X
-        new_z = pauli & Pauli.Z
-        self.g.set_edata(self.edge, "xweb", new_x)
-        self.g.set_edata(self.edge, "zweb", new_z)
-        
-        self.update_graph_view()
-    
-    def undo(self) -> None:
-        assert self._old_pauli is not None
-        self._set_pauli_type(self._old_pauli)
-    
-    def redo(self) -> None:
-        self._set_pauli_type(self.pauli_type)

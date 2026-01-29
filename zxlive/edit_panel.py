@@ -15,7 +15,7 @@ from zxlive.eitem import EItem
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut, Qt
 
 from .base_panel import ToolbarSection
-from .commands import SetPauliWeb, UpdateGraph
+from .commands import UpdateGraph
 from .common import ET, VT, GraphT, get_settings_value
 from .dialogs import create_circuit_dialog, show_error_msg, write_to_file
 from .editor_base_panel import EditorBasePanel
@@ -98,7 +98,7 @@ class GraphEditPanel(EditorBasePanel):
             return
         
         new_g: GraphT = copy.deepcopy(self.graph_scene.g)
-        self.start_pauliwebs_signal.emit(new_g) 
+        self.start_pauliwebs_signal.emit(new_g)
 
     def _input_circuit(self) -> None:
         settings = QSettings("zxlive", "zxlive")
