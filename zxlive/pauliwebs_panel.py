@@ -12,9 +12,9 @@ from zxlive.graphview import GraphView
 
 from .base_panel import BasePanel, ToolbarSection
 from .commands import UpdateGraph
-from .common import VT, GraphT, get_settings_value
+from .common import ET, GraphT, get_settings_value
 from .dialogs import show_error_msg
-from .graphscene import EditGraphScene, GraphScene
+from .graphscene import GraphScene
 
 
 import json
@@ -22,11 +22,11 @@ from pyzx.graph.jsonparser import json_to_graph
 from pyzx.web import compute_pauli_webs
 
 # type alias
-PauliWeb = pauliweb.PauliWeb[int, tuple[int ,int]]
+PauliWeb = pauliweb.PauliWeb[int, tuple[int, int]]
 
 class PauliWebsPanel(BasePanel):
     """write something here"""
-    
+
     graph_scene: GraphScene
     sidebar: QSplitter
 
@@ -44,49 +44,48 @@ class PauliWebsPanel(BasePanel):
         self._curr_vty = VertexType.Z
         self._curr_ety = EdgeType.SIMPLE
         self.patterns_folder = get_settings_value("patterns-folder", str)
-        
-        
+
         self.graph_view = GraphView(self.graph_scene)
         self.splitter.addWidget(self.graph_view)
         self.graph_view.set_graph(graph)
-        
+
         self.web_container, self.web_list = create_titled_list_container("Pauli Webs")
         self.splitter.addWidget(self.web_container)
         self.web_list.itemSelectionChanged.connect(self._on_web_selection_changed)
-        
+
         self._pauli_webs: list[PauliWeb] = []
         self._pauli_web_index: list[int] = []
         self._compute_pauli_webs()
 
         self.edge_clicked = False
-        
+
     def _compute_pauli_webs(self) -> None:
         # First convert the graph to a simple graph so that pyzx can compute the pauli webs
         graph_json = json.loads(self.graph_scene.g.to_json())
-        
+
         try:
             edge_pairs = [tuple(sorted(edge[:2])) for edge in graph_json.get("edges", [])]
             unique_pairs = set(edge_pairs)
             has_duplicate_edges = len(edge_pairs) != len(unique_pairs)
-            
+
             if has_duplicate_edges:
                 raise ValueError("Graph is a multigraph. Pauli web computation requires a simple graph.")
-            
+
         except ValueError as ve:
             show_error_msg(str(ve), parent=self)
             return
-        
+
         simple_g = json_to_graph(graph_json, backend="simple")
-    
+
         try:
             stabs, regions = compute_pauli_webs(simple_g)
         except Exception as err:
             show_error_msg("Failed to compute Pauli webs", str(err), parent=self)
             return
-        
+
         # Store the webs
         self._pauli_webs = stabs + regions
-        
+
         inputs = ()
         outputs = ()
         try:
@@ -95,7 +94,7 @@ class PauliWebsPanel(BasePanel):
             outputs = self.graph.outputs()
         except Exception:
             show_error_msg("Warning: Could not auto-detect inputs/outputs for Pauli web computation", parent=self)
-        
+
         priority_map = {
     "Logical": 0,
     "Co-stabiliser": 1,
@@ -110,7 +109,7 @@ class PauliWebsPanel(BasePanel):
             is_region = i >= len(stabs)
             is_stab = any(e[0] in outputs or e[1] in outputs for e in web.half_edges())
             is_costab = any(e[0] in inputs or e[1] in inputs for e in web.half_edges())
-            
+
             web_type = (
                 "Detecting Region" if is_region
                 else "Logical" if is_stab and is_costab
@@ -134,10 +133,10 @@ class PauliWebsPanel(BasePanel):
             # Re-identify type (since we just sorted them, they are grouped)
             # We use the same logic or just grab it from our sorted list
             current_type = annotated_webs[i]['type']
-            
+
             type_counts[current_type] += 1
             label = f"{current_type} #{type_counts[current_type]}"
-            
+
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, i) # Index now matches the new list order
             self.web_list.addItem(item)
@@ -158,13 +157,13 @@ class PauliWebsPanel(BasePanel):
             web = self._pauli_webs[self._pauli_web_index[0]]
             for i in self._pauli_web_index[1:]:
                 web *= self._pauli_webs[i]
-            
+
             for (s, t), pauli in web.half_edges().items():
                 try:
                     edge = new_g.edge(s, t)
                 except Exception:
                     continue
-                
+
                 if pauli in ("X", "Y") and s < t:
                     new_g.set_edata(edge, "xweb0", True)
                 if pauli in ("X", "Y") and s > t:
@@ -173,10 +172,10 @@ class PauliWebsPanel(BasePanel):
                     new_g.set_edata(edge, "zweb0", True)
                 if pauli in ("Z", "Y") and s > t:
                     new_g.set_edata(edge, "zweb1", True)
-        
+
         self.undo_stack.push(UpdateGraph(self.graph_view, new_g))  # or SetGraph if you don’t want undo entries
         self.graph_scene.invalidate() # TODO: invalidating the whole scene might be overkill
-    
+
     def _on_web_selection_changed(self) -> None:
         selected_items = self.web_list.selectedItems()
         if not selected_items:
@@ -184,7 +183,7 @@ class PauliWebsPanel(BasePanel):
         else:
             self._pauli_web_index = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
         self._show_current_pauli_web()
-    
+
     def _toolbar_sections(self) -> Iterator[ToolbarSection]:
         self.clear_pauli_webs = QToolButton(self)
         self.clear_pauli_webs.setText("Clear Pauli Webs")
@@ -196,18 +195,17 @@ class PauliWebsPanel(BasePanel):
         self.web_list.clearSelection()
         self._show_current_pauli_web()
 
-    def edge_double_clicked(self, v: VT) -> None:
+    def edge_double_clicked(self, e: ET) -> None:
         for edge in self.graph_scene.g.edges():
             self.graph_scene.g.set_edata(edge, "highlight", False)
 
-        e = self.graph_scene.g.edge(v[0], v[1])
         self.graph_scene.g.set_edata(e, "highlight", True)
 
         for i,web in enumerate(self._pauli_webs):
             item = self.web_list.item(i)
             item.setForeground(QBrush())
             item.setFont(QFont())
-            if (v[0], v[1]) in web.half_edges():
+            if (e[0], e[1]) in web.half_edges():
                 if item:
                     item.setForeground(QColor("#FFC107"))
                     font = QFont()
@@ -224,7 +222,7 @@ class PauliWebsPanel(BasePanel):
             item = self.web_list.item(i)
             item.setForeground(QBrush())
             item.setFont(QFont())
-            
+
 
 def create_titled_list_container(title: str) -> tuple[QWidget, QListWidget]:
     container = QWidget()
